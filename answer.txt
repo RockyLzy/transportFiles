@@ -1,0 +1,53 @@
+Exercise 3:
+1、在boot.S文件中一开始执行的是实模式。通过
+ljmp	$PROT_MODE_CSEG, $protcseg
+这条指令，将当前的运行模式 切换成32位地址模式
+之后执行32位代码
+
+2、boot loader中执行的最后一条语句是
+((void (*)(void)) (ELFHDR->e_entry))();
+内核被加载到内存后执行的第一条语句是
+movw	$0x1234,0x472	#warm boot
+
+3、内核的第一条指令在lab/obj/kern/kernel.asm中
+
+4、通过读取ELFHDR头部获得kernel的大小，也就知道要读取多少扇区
+ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);
+通过这句语句读取Program Header Table
+
+
+Exercise 8:
+1、printf.c是最接近用户层次的抽象，console.c则完成了很多底层的工具函数。printf.c调用了console.c中完成的一些函数。
+调用了console.c中的cputchar函数。
+printf.c中的cprintf调用了自己的vcprintf，vcprintf调用了自己的静态函数putch，而这个putch函数调用了console.c中的cputchar函数，实现了向屏幕上输出一个字符的功能。
+
+2、这段代码出现在cga_putc函数中。
+其中cputchar调用了cons_putc，cons_putc又调用了cga_putc。可以看出，这个cga_putc函数的作用是把字符输出到屏幕上。
+这段代码的功能是：当你想输入的字符位置超出了屏幕（CRT_SIZE），需要整体向上移动一行，并把最后一行变成空行。
+
+3、
+（1）当调用cprintf时，fmt指的是正则表达式；ap是一个va_list，表示所有填入的参数
+（2）首先调用的是printf.c中的cprintf，然后把fmt,ap作为参数调用vcprintf,然后调用了printfmt.c中的vprintfmt函数。
+在vprintfmt中的第一个参数putch是一个函数，作用是把字符输出到屏幕。这里调用了console.c中的cputchar函数（之后如上一小题所说，调用到cons_putc，参数就是想要输出的字符）
+在vcprintf中两个参数的值分别为：fmt--"x %d, y %x, z %d\n"；ap--"x, y, z"
+在vprintfmt函数中，处理了fmt，并把ap中的值代入正则化表达式。
+在case 'd'：......中，调用了getint函数（去取出ap中的前lflag个参数），其中调用了va_arg。（解析到第一个"%d"的时候调用va_arg，调用前 va='1,3,4'，调用后va='3,4'）（在本小题中，每次调用取出第一个参数）
+故总体调用顺序为：vcprintf->cons_putc->va_arg->va_arg->va_arg
+
+4、输出是："He110 World"
+首先，根据正则表达式，第一个位置的值应为16进制数，而57616=0xe110，故一开始是He110
+接下去是一个字符串，而&i表示是i这个地址中储存的字符串。由于x86是小端模式，所以顺序输出应为72,6c,64,0。查表知分别为：'r','l','d','null'
+故总输出为"He110 World"
+
+5、输出是："x=3 y=-267380676"
+因为y值未指定。这三个文件中并没有给出va_arg如何处理缺省值，但根据输出结果可以猜测，是输出某个内存位置的初始值
+
+6、所有变量完全倒置输入即可。
+因为gcc改变读取方向，所以变量倒置
+e.g：原来是("x=%d y=%d",1,2)，现在应是(2,1,"x=%d y=%d")
+
+Challenge：在console.c的cga_putc函数中，参数c的后8位表示的是希望输出的字符，前8位表示控制台输出颜色。
+前8位中的前4位表示背景底色，后4位表示字体颜色
+0-黑色；1-蓝色；2-绿色；3-青色
+4-红色；5-紫色；6-橙色；7-白色
+最高位的1会调亮调耀眼
